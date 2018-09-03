@@ -26,7 +26,7 @@ WAT_DO=""       #   main
 distro_check ()         # System compatibility check for this script
 {
     # Set Global variables based on package manager:
-    #   if apt exists = Debian
+    #   If apt exists = Debian
     if command -v apt-get &> /dev/null; then
         PKG_MANAGER="apt-get"
         PKG_UPDATE=""$PKG_MANAGER" update"
@@ -60,7 +60,7 @@ prereq_check ()         # Check if Git, gcc installed; install if not
         echo "Git installed."
     else
         echo "Git not found; installing..."
-    "$PKG_MANAGER" install git -y
+        "$PKG_MANAGER" install git -y
     fi
     
     # What about gcc?
@@ -68,10 +68,10 @@ prereq_check ()         # Check if Git, gcc installed; install if not
         echo "gcc installed."
     else
         echo "gcc not found; installing..."
-    "$PKG_MANAGER" install gcc -y
+        "$PKG_MANAGER" install gcc -y
     fi
 }
-user_create ()  # Create User and Group 'skywire'; set GOPATH, permissions
+user_create ()          # Create User/Group 'skywire'; set GOPATH, permissions
 {
     echo "Creating user "$USER""
     useradd "$USER"
@@ -160,7 +160,7 @@ ip_prompt_manager ()    # Ask User to enter a Node Manager IP
     fi
 }
 
-menu ()                 # Presentation and options
+menu ()                 # Presentation and options;
 {
     clear
     local choice=""             # set by User
@@ -175,7 +175,7 @@ menu ()                 # Presentation and options
         * ) . install.sh;;      # sigh...
     esac
 }
-ui_menu ()              #   separated from menu () to keep things tidy
+ui_menu ()              # separated from menu () to keep things tidy
 {
 cat <<MENU
 Welcome to some Skywire install script!
@@ -254,7 +254,7 @@ go_install ()   # Detect CPU architecture, install Go and update system PATH
     local hashCheck=""  # Local Hash Compute Value
     local tries=2       # Go download attempts, exit status counter
 
-    # CPU architecture:
+    # Get CPU architecture;
     #   `lscpu` | 1st line | 2nd column
     cpu="$(lscpu | sed 1q | awk '{ print $NF }')"
     #   supported types:
@@ -290,7 +290,7 @@ go_install ()   # Detect CPU architecture, install Go and update system PATH
 
         check_hash
 
-        # possible exit codes: {-1,2}
+        # Loop twice if initial fails; possible exit codes: {-1,2}
         #   (remember, variable "tries" first declared as integer 2)
         if [ $tries -eq 2 ]; then           # Strike 1
             echo "Retrying download..."     #   maybe interrupted?
@@ -308,7 +308,7 @@ go_install ()   # Detect CPU architecture, install Go and update system PATH
         ((tries--)) # Tick loop counter down
     done
 
-    # Extract $link (as per golang.org/doc/install)
+    # Extract Go file archive (as per golang.org/doc/install):
     echo "Extracting Go to /usr/local..."
     tar xvpf "$link" -C /usr/local 2>&1 | \
     #   -e[x]tract -[v]erbose -[p]reservePermissions -use[f]ileArchive
@@ -318,7 +318,7 @@ go_install ()   # Detect CPU architecture, install Go and update system PATH
         echo -en ""$x" extracted\r"
     done
 
-    # Add Go to system PATH
+    # Add Go to system PATH:
     cp -n /etc/profile /etc/profile.orig    # Copy but don't overwrite existing
     cp /etc/profile.orig /etc/profile       # Use fresh copy
     echo "export PATH=\$PATH:/usr/local/go/bin/" >> /etc/profile
