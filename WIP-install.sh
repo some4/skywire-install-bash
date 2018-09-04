@@ -10,6 +10,9 @@
 #
 # A Super User installs Skywire and configures a User that runs Skywire with
 #   it's own permissions.
+#
+# Master nodes maintain a list of the hosts that make up a Cluster by printing
+#   out Minion ssh-keys in /home/${USER}/.ssh.
 
 ## Global variables
 # NAME:         ##  used_in_functions:
@@ -380,6 +383,9 @@ main ()
 
     git_build_skywire       # Clone Skywire repo; build binaries; permissions
 
+
+
+    echo "Installation complete."
     # Github.com/some4/Skywire
 }
 main
