@@ -334,11 +334,7 @@ git_build_skywire ()    # Clone Skywire repo; build binaries; set permissions
 
     cd ${GOPATH}/src/github.com/skycoin/skywire/cmd
     echo "Building Skywire binaries please wait..."
-    /usr/local/go/bin/go install ./... | \
-    while read line; do                     # Progress indicator
-        x=$((x+1))
-        echo -en ""$x"\r"
-    done
+    /usr/local/go/bin/go install -a -v ./...    # -a (force rebuild); -verbose
 
     # Finally, set home permissions:
     chown "$USER":"$USER" -R /home/${USER}  # Change owner:group
@@ -347,7 +343,7 @@ git_build_skywire ()    # Clone Skywire repo; build binaries; set permissions
 
 
 
-main () #
+main ()
 {
     distro_check                    # Check compatibility; Debian, Systemd?
     menu                            # Show User some choices
