@@ -16,9 +16,9 @@
 
 ## Global variables
 # NAME:         ##  used_in_functions:
-IP_HOST=""      #   ip_prompt_host, ntp_config
+IP_HOST=""      #   ip_entry, ntp_config
 IP_MANAGER=""   #   ip_prompt_manager, ntp_config
-IP_SUBNET=""    #
+IP_ROUTER=""    #
 PKG_MANAGER=""  #   distro_check, prereq_check
 PKG_UPDATE=""   #   distro_check
 PKG_UPGRADE=""  #   distro_check
@@ -126,40 +126,18 @@ ip_bad_entry ()         # Alert User and require action for an invalid entry
     # Prompt User action (n1 = read any single byte; s = turn off echo):
     read -p "Invalid IP. Press any key to try again... " -n1 -s
 }
-ip_prompt_host ()       # Ask User to enter IP they would like to set for node
+ip_entry ()       # Ask User to enter IP they would like to set for node
 {
-    local entry_host=""
-    clear
-
-    # Ask for input and set as local variable:
-    read -p "Enter the IP address for this node:" entry_host
+    local entry_ip=""
     
     # Check if valid entry:
-    ip_validate "$entry_host"
+    ip_validate "$entry_ip"
 
     if [[ $? -ne 0 ]]; then # Start over (output from ip_validate)
         ip_bad_entry
-        ip_prompt_host      # To the top and ask again
+        ip_entry      # To the top and ask again
     else
-        IP_HOST="$entry_host"
-    fi
-}
-ip_prompt_manager ()    # Ask User to enter a Node Manager IP
-{
-    local entry_manager=""
-    echo -e
-
-    # Ask for input and set local variable:
-    read -p "Enter the IP of a Skywire Manager:" entry_manager
-    
-    # Check if valid entry:
-    ip_validate "$entry_manager"
-
-    if [[ $? -ne 0 ]]; then         # Start over
-        ip_bad_entry
-        ip_prompt_manager           # To the top and ask again
-    else
-        IP_MANAGER="$entry_manager"
+        IP_${WAT_DO}="$entry_ip"
     fi
 }
 
@@ -358,13 +336,16 @@ main ()
         exit
     fi
 
-    ip_prompt_host                  # User sets host/node IP
-
     # Choices from menu ()
-    if [[ $WAT_DO = MASTER ]]; then
+    if [[ "$WAT_DO" = MASTER ]]; then
+        # Ask for input and set as local variable:
+        read -p "Enter an IP address for this "$WAT_DO" node:" entry_ip
+        ip_entry "$entry_ip"
         IP_MANAGER="$IP_HOST"
-    elif [[ $WAT_DO = MINION ]]; then
-        ip_prompt_manager
+    elif [[ "$WAT_DO" = MINION ]]; then
+        # Ask for input and set as local variable:
+        read -p "Enter an IP address for this "$WAT_DO" node:" entry_ip
+        ip_entry "$entry_ip"
     fi
 
     distro_update
