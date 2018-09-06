@@ -39,9 +39,9 @@ distro_check ()         # System compatibility check for this script
         echo "Your distribution is not supported by this script."
         exit
     fi
-    
+
     # Check for systemd:
-    if command -v systemctl &> /dev/null; then
+    if [[ ! -d /usr/lib/systemd ]]; then
         echo "This script requires systemd."
         exit
     fi
@@ -50,10 +50,10 @@ net_interface_config ()
 {
     local choice_nw=""
     local dhcp=0            # 1=yes,0=no
-    read -p "Press 'z' to set a Static IP; press 'p' for DHCP/auto" choice_nw
+    read -p "Press 'z' to assign your Router IP; press 'p' for DHCP:"``$'\n' choice_nw
     case "$choice_nw" in
         p|P ) dhcp=1;;
-        z|Z ) echo "";;
+        z|Z ) ;;
         * ) net_interface_config;;
     esac
 
@@ -70,7 +70,7 @@ net_interface_config ()
         ACTION="of your Router or DHCP server:"
         ip_check
         ip_dhcp="$IP_ACTION"    # Set DHCP address
-        
+
         printf "auto "$adapter"\n`
         `allow-hotplug "$adapter"\n`
         `iface "$adapter" inet "$dhcp"\n`
@@ -79,7 +79,7 @@ net_interface_config ()
         `  gateway "$ip_dhcp"\n`
         `  dns-nameservers "$ip_dhcp"\n" \
         > "${interfacesd}/${adapter}"
-    
+
     else    # DHCP/auto networking:
         printf "auto "$adapter"\n`
         `allow-hotplug "$adapter"\n`
@@ -106,7 +106,7 @@ prereq_check ()         # Check if Git, gcc installed; install if not
         echo "Git not found; installing..."
         "$PKG_MANAGER" install git -y
     fi
-    
+
     # What about gcc?
     if gcc --version >/dev/null 2>&1; then
         echo "gcc installed."
@@ -165,7 +165,7 @@ ip_validate ()          # Check format of IP entry
 ip_bad_entry ()         # Alert User and require action for an invalid entry
 {
     # Prompt User action (n1 = read any single byte; s = turn off echo):
-    read -p "Invalid IP. Press any key to try again... " -n1 -s
+    read -p "Invalid IP. Press any key to try again... "``$'\n' -n1 -s
 }
 ip_check ()    # Ask User to enter a Node Manager IP
 {
@@ -173,7 +173,7 @@ ip_check ()    # Ask User to enter a Node Manager IP
     IP_ACTION=""
 
     # Ask for input and set local variable:
-    read -p "Enter the IP address $ACTION" entry_ip
+    read -p "Enter the IP address $ACTION"``$'\n' entry_ip
 
     IP_ACTION=$entry_ip
 
@@ -192,7 +192,7 @@ menu ()                 # Presentation and options;
     local choice=""             # set by User
 
     ui_menu                     # Display options to User
-    
+
     read -p "" choice           # -p for prompt
     case "$choice" in
         z|Z ) WAT_DO="MASTER";;
