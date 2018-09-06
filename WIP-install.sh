@@ -207,7 +207,7 @@ prereq_check ()         # Check if Git, gcc installed; install if not
 user_create ()          # Create User/Group 'skywire'; set GOPATH, permissions
 {
     # Check if .bash_profile exists; delete:
-    if [ -f /home/${USER}/.bash_profile ]; then
+    if [[ -f /home/${USER}/.bash_profile ]]; then
         rm /home/${USER}/.bash_profile
     fi
 
@@ -501,6 +501,9 @@ main ()
     #   create systemd files for Skywire:
     systemd_node
     systemd_manager
+    #   set executable:
+    chmod 754 /etc/systemd/system/skymanager.service
+    chmod 754 /etc/systemd/system/skynode.service
 
     ssh_config
 
@@ -517,7 +520,7 @@ main ()
         systemctl enable skynode.service
         systemctl start skynode.service
     fi
-    
+
     # Force root to hold node keys (because of sockss bug that regens keys):
     chmod 644 /home/${USER}/go/bin/.skywire/ss/keys.json
     chown root:root /home/${USER}/go/bin/.skywire/ss/keys.json
