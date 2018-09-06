@@ -517,6 +517,8 @@ main ()
         systemctl start skynode.service
     fi
     
+    sleep 9
+
     # Set folder permissions:
     chown "$USER":"$USER" -R /home/${USER}  # Change owner:group
     chmod 754 -R /home/${USER}              # Set directory permissions
