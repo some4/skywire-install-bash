@@ -199,9 +199,18 @@ prereq_check ()         # Check if Git, gcc installed; install if not
         echo "gcc not found; installing..."
         "$PKG_MANAGER" install gcc -y
     fi
+
+    # Install Certificate Authority for SSL:
+    "$PKG_MANAGER" install ca-certificates -y
+    #   `update-ca-certificates` for future reference
 }
 user_create ()          # Create User/Group 'skywire'; set GOPATH, permissions
 {
+    # Check if .bash_profile exists; delete:
+    if [ -f /home/${USER}/.bash_profile ]; then
+        rm /home/${USER}/.bash_profile
+    fi
+
     echo "Creating user "$USER""
     useradd "$USER"
     usermod -aG "$USER" "$USER"         # create group and add User
@@ -476,21 +485,17 @@ main ()
         ip_check "$entry_ip"
         IP_MANAGER="$IP_ACTION" # Set a Manager address 
     fi
-#    net_interface_config
+    net_interface_config
 
-#    distro_update
+    distro_update
 
-    # Certificate Authority for SSL
-#    "$PKG_MANAGER" install ca-certificates -y
-    #   `update-ca-certificates` for future reference
+    prereq_check            # If no Git, gcc go get
 
-#    prereq_check            # If no Git, gcc go get
+    ntp_config              # Setup appropriate NTP settings
 
-#    ntp_config              # Setup appropriate NTP settings
+    go_install              # Go download, install and set GOROOT path
 
-#    go_install              # Go download, install and set GOROOT path
-
-#    user_create             # Create User and add to Group; set GOPATH
+    user_create             # Create User and add to Group; set GOPATH
 
     git_build_skywire       # Clone Skywire repo; build binaries; permissions
     #   create systemd files for Skywire:
@@ -498,6 +503,24 @@ main ()
     systemd_manager
 
     ssh_config
+
+    # Start Skywire services to generate keys and directories:
+    if [[ "$WAT_DO" = MASTER ]]; then
+        systemctl daemon-reload
+        systemctl enable skynode.service
+        systemctl start skynode.service
+
+        systemctl enable skymanager.service
+        systemctl start skymanager.service
+    elif [[ "$WAT_DO" = MINION ]]; then
+        systemctl daemon-reload
+        systemctl enable skynode.service
+        systemctl start skynode.service
+    fi
+    
+    # Force root to hold node keys (because of sockss bug that regens keys):
+    chmod 644 /home/${USER}/go/bin/.skywire/ss/keys.json
+    chown root:root /home/${USER}/go/bin/.skywire/ss/keys.json
 
     echo "Installation complete."
     # Github.com/some4/Skywire
