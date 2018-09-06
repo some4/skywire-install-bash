@@ -198,7 +198,7 @@ menu ()                 # Presentation and options;
         z|Z ) WAT_DO="MASTER";;
         p|P ) WAT_DO="MINION";;
         q|Q ) exit;;
-        * ) . install.sh;;      # sigh...
+        * ) . WIP-install.sh;;      # sigh...
     esac
 }
 ui_menu ()              # separated from menu () to keep things tidy
@@ -383,7 +383,7 @@ main ()
     if [[ "$WAT_DO" = MASTER ]]; then
         # From ip_check: "Enter the IP address ...":
         ACTION="of this "$WAT_DO" node:"
-        ip_check "$entry_ip"
+        ip_check
         IP_HOST="$IP_ACTION"    # Set host address
         IP_MANAGER="$IP_HOST"   # Set Manager address
 
