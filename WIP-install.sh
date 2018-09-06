@@ -381,10 +381,6 @@ git_build_skywire ()    # Clone Skywire repo; build binaries; set permissions
     cd ${GOPATH}/src/github.com/skycoin/skywire/cmd
     echo "Building Skywire binaries please wait..."
     /usr/local/go/bin/go install -a -v ./...    # -a (force rebuild); -verbose
-
-    # Finally, set home permissions:
-    chown "$USER":"$USER" -R /home/${USER}  # Change owner:group
-    chmod 754 -R /home/${USER}              # Set directory permissions
 }
 systemd_manager ()      # Create service file for Skywire Manager (autostart)
 {
@@ -520,6 +516,10 @@ main ()
         systemctl enable skynode.service
         systemctl start skynode.service
     fi
+    
+    # Set folder permissions:
+    chown "$USER":"$USER" -R /home/${USER}  # Change owner:group
+    chmod 754 -R /home/${USER}              # Set directory permissions
 
     # Force root to hold node keys (because of sockss bug that regens keys):
     chmod 644 /home/${USER}/go/bin/.skywire/ss/keys.json
