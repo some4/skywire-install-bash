@@ -46,6 +46,47 @@ distro_check ()         # System compatibility check for this script
         exit
     fi
 }
+net_interface_config ()
+{
+    local choice_nw=""
+    local dhcp=0            # 1=yes,0=no
+    read -p "Press 'z' to set a Static IP; press 'p' for DHCP/auto" choice_nw
+    case "$choice_nw" in
+        p|P ) dhcp=1;;
+        z|Z ) echo "";;
+        * ) net_interface_config;;
+    esac
+
+    local adapter=""        # Network device name
+    local interfacesd=/etc/network/interfaces.d
+    # Get 1st adapter name (not {lo,vir,wl}*):
+    adapter=$(ip link | awk -F: '$0 !~ "lo|vir|wl|^[^0-9]"{print $2;getline}' \
+            | sed -n '1p' | sed 's/ //')    # 2p,3p,etc. for next devices
+    touch ${interfacesd}/${adapter}
+
+    local ip_dhcp=""
+    if [[ "$dhcp" = 0 ]]; then
+        # From ip_check: "Enter the IP address ...":
+        ACTION="of your Router or DHCP server:"
+        ip_check
+        ip_dhcp="$IP_ACTION"    # Set DHCP address
+        
+        printf "auto "$adapter"\n`
+        `allow-hotplug "$adapter"\n`
+        `iface "$adapter" inet "$dhcp"\n`
+        `  address "$IP_HOST"\n`
+        `  netmask 255.255.255.0\n`
+        `  gateway "$ip_dhcp"\n`
+        `  dns-nameservers "$ip_dhcp"\n" \
+        > "${interfacesd}/${adapter}"
+    
+    else    # DHCP/auto networking:
+        printf "auto "$adapter"\n`
+        `allow-hotplug "$adapter"\n`
+        `iface "$adapter" inet dhcp" \
+        > "${interfacesd}/${adapter}"
+    fi
+}
 distro_update ()        # Base update and upgrade
 {
     echo -e             # Create empty line
@@ -119,25 +160,29 @@ ip_validate ()          # Check format of IP entry
 
         stat=$?         # $? = most recent pipline exit status; 0
     fi
-    return $stat        # Send status down to ip_prompt_* ()
+    return "$stat"        # Send status down to ip_prompt_* ()
 }
 ip_bad_entry ()         # Alert User and require action for an invalid entry
 {
     # Prompt User action (n1 = read any single byte; s = turn off echo):
     read -p "Invalid IP. Press any key to try again... " -n1 -s
 }
-ip_entry ()       # Ask User to enter IP they would like to set for node
+ip_check ()    # Ask User to enter a Node Manager IP
 {
     local entry_ip=""
-    
+    IP_ACTION=""
+
+    # Ask for input and set local variable:
+    read -p "Enter the IP address $ACTION" entry_ip
+
+    IP_ACTION=$entry_ip
+
     # Check if valid entry:
     ip_validate "$entry_ip"
 
-    if [[ $? -ne 0 ]]; then # Start over (output from ip_validate)
+    if [[ $? -ne 0 ]]; then         # Start over
         ip_bad_entry
-        ip_entry      # To the top and ask again
-    else
-        IP_${WAT_DO}="$entry_ip"
+        ip_check           # To the top and ask again
     fi
 }
 
@@ -322,8 +367,6 @@ git_build_skywire ()    # Clone Skywire repo; build binaries; set permissions
     chmod 754 -R /home/${USER}              # Set directory permissions
 }
 
-
-
 main ()
 {
     distro_check                    # Check compatibility; Debian, Systemd?
@@ -336,17 +379,27 @@ main ()
         exit
     fi
 
-    # Choices from menu ()
+    # Menu choices
     if [[ "$WAT_DO" = MASTER ]]; then
-        # Ask for input and set as local variable:
-        read -p "Enter an IP address for this "$WAT_DO" node:" entry_ip
-        ip_entry "$entry_ip"
-        IP_MANAGER="$IP_HOST"
-    elif [[ "$WAT_DO" = MINION ]]; then
-        # Ask for input and set as local variable:
-        read -p "Enter an IP address for this "$WAT_DO" node:" entry_ip
-        ip_entry "$entry_ip"
+        # From ip_check: "Enter the IP address ...":
+        ACTION="of this "$WAT_DO" node:"
+        ip_check "$entry_ip"
+        IP_HOST="$IP_ACTION"    # Set host address
+        IP_MANAGER="$IP_HOST"   # Set Manager address
+
+    elif [[ "$WAT_DO" = MINION ]]; then   
+        # "Enter the IP address ...":
+        ACTION="of this "$WAT_DO" node:"
+        ip_check "$entry_ip"
+        IP_HOST="$IP_ACTION"    # Set host address 
+
+        # "Enter the IP address ...":
+        ACTION="of a Skywire manager."
+        ip_check "$entry_ip"
+        IP_MANAGER="$IP_ACTION" # Set a Manager address 
     fi
+
+    net_interface_config
 
     distro_update
 
