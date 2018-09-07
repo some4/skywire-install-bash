@@ -433,7 +433,6 @@ skywire_manager ()      # systemd/autostart configuration; permissions
         `WantedBy=multi-user.target\n" \
         > /etc/systemd/system/skymanager.service
     #   permissions:
-        chown ${USER}:${USER} /home/${USER}/skymanager.service
         chmod 754 /etc/systemd/system/skymanager.service
 
     # 'Absolute Path' file:
@@ -477,9 +476,10 @@ skywire_node ()         # Create service file for Skywire Node (autostart)
         `./node -connect-manager -manager-address 127.0.0.1:5998 `
         `-manager-web 127.0.0.1:8000 `
         `-discovery-address ${disc_addr} -address :5000 -web-port :6001 `
-        `> /dev/null 2>&1 &sleep 3\n" > /home/${USER}/skywire_nodeStart
+        `> /dev/null 2>&1 &sleep 3\n" \
+        > /home/${USER}/skywire_nodeStart
     #   set permissions (user rwx; group rx; else r)
-        chown root:${USER} /home/${USER}/skywire_nodeStart
+        chown ${USER}:${USER} /home/${USER}/skywire_nodeStart
         chmod 754 /home/${USER}/skywire_nodeStart
 }
 ssh_config ()   # Base configuration for ssh: keys, daemon and client
