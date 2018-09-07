@@ -257,10 +257,6 @@ user_create ()          # Create User/Group 'skywire'; set GOPATH, permissions
     echo "export GOBIN=${GOPATH}/bin" >> /home/${USER}/.bash_profile
     echo "PATH="$PATH":"$GOBIN"" >> /home/${USER}/.bash_profile
     source /home/${USER}/.bash_profile
-
-    # Set folder permissions:
-    chown "$USER":"$USER" -R /home/${USER}  # Change owner:group
-    chmod 774 -R /home/${USER}              # Set directory permissions
 }
 ntp_config ()           # Network Time Protocol (NTP)
 {
@@ -319,7 +315,7 @@ ntp_config ()           # Network Time Protocol (NTP)
     # Set hardware clock to UTC (which doesn't have daylight savings):
     hwclock -w
 }
-go_install ()           # Detect CPU architecture, install Go and update system PATH
+go_install ()           # Detect CPU; install Go; update system PATH
 {
     local cpu=""
     local os="linux"
@@ -400,7 +396,7 @@ go_install ()           # Detect CPU architecture, install Go and update system 
     echo -e
     echo "Go installed!"
 }
-git_build_skywire ()    # Clone Skywire repo; build binaries; set permissions
+git_build_skywire ()    # Clone Skywire repo; build binaries; permissions
 {
     mkdir -p ${GOPATH}/src/github.com/skycoin
     cd ${GOPATH}/src/github.com/skycoin
@@ -418,7 +414,7 @@ skywire_manager ()      # systemd/autostart configuration; permissions
     #   will be created in /etc/systemd/.. and point to:
     #   /home/$USER/systemd.service_something
     # In the service_something file, the 'ExecStart' must point to $somefile
-    #   containing the Absolute command to execute:
+    #   containing the Absolute Command to execute:
 
     # Create systemd service file:
     printf "[Unit]\n`
@@ -426,6 +422,7 @@ skywire_manager ()      # systemd/autostart configuration; permissions
         `After=network.target\n`
         `\n`
         `[Service]\n`
+        `Type=oneshot`
         `User=${USER}\n`
         `Group=${USER}\n`
         `ExecStart=/home/${USER}/skywire_managerStart\n`
@@ -434,20 +431,21 @@ skywire_manager ()      # systemd/autostart configuration; permissions
         `\n`
         `[Install]\n`
         `WantedBy=multi-user.target\n" \
-        > /home/${USER}/skywire_manager_systemd.service
+        > /etc/systemd/system/skymanager.service
+    #   permissions:
+        chown ${USER}:${USER} /home/${USER}/skymanager.service
+        chmod 754 /etc/systemd/system/skymanager.service
 
     # 'Absolute Path' file:
     printf "#!/bin/bash\n`
-        `${GOBIN}/manager -web-dir /etc/${USER}/.skywire\n" \
+        `cd ${GOBIN}\n`
+        `./manager -web-dir `
+        `${GOPATH}/src/github.com/skycoin/skywire/static/skywire-manager `
+        `> /dev/null 2>&1 &sleep 3\n" \
         > /home/${USER}/skywire_managerStart
-
-    # Set permissions (user rwx; group rx; else r)
-        chmod 754 /home/${USER}/skywire_manager_systemd.service
-        chmod 754 /home/${USER}/skywire_managerstart
-
-    # Soft link at /etc/systemd/.. pointing to /home/$USER/*.service_something:
-        ln -s /home/${USER}/skywire_manager_systemd.service \
-        /etc/systemd/system/skymanager.service
+    #   set permissions (user rwx; group rx; else r)
+        chown ${USER}:${USER} /home/${USER}/skywire_managerStart
+        chmod 754 /home/${USER}/skywire_managerStart
 }
 skywire_node ()         # Create service file for Skywire Node (autostart)
 {
@@ -460,6 +458,7 @@ skywire_node ()         # Create service file for Skywire Node (autostart)
         `After=network.target\n`
         `\n`
         `[Service]\n`
+        `Type=oneshot`
         `User=${USER}\n`
         `Group=${USER}\n`
         `ExecStart=/home/${USER}/skywire_nodeStart\n`
@@ -467,20 +466,21 @@ skywire_node ()         # Create service file for Skywire Node (autostart)
         `RestartSec=10\n`
         `\n`
         `[Install]\n`
-        `WantedBy=multi-user.target\n" > /home/${USER}/systemd.service_skywireNode
+        `WantedBy=multi-user.target\n" \
+        > /etc/systemd/system/skynode.service
+    #   permissions:
+        chmod 754 /etc/systemd/system/skynode.service
 
     # 'Absolute Path' file:
     printf "#!/bin/bash\n`
-        `${GOBIN}/node -connect-manager ${IP_MANAGER}:5998 ` \
-        `-manager-web ${IP_MANAGER}:8000 -discovery-address "$disc_addr" ` \
-        `-address :5000 -web-port :6001\n" > /home/${USER}/skywire_nodeStart
-
-    # Set permissions (user rwx; group rx; else r)
-        chmod 754 /home/${USER}/skynode.service
+        `cd ${GOBIN}\n`
+        `./node -connect-manager -manager-address 127.0.0.1:5998 `
+        `-manager-web 127.0.0.1:8000 `
+        `-discovery-address ${disc_addr} -address :5000 -web-port :6001 `
+        `> /dev/null 2>&1 &sleep 3\n" > /home/${USER}/skywire_nodeStart
+    #   set permissions (user rwx; group rx; else r)
+        chown root:${USER} /home/${USER}/skywire_nodeStart
         chmod 754 /home/${USER}/skywire_nodeStart
-
-    # Soft link at /etc/systemd/.. pointing to /home/$USER/*.service_something:
-        ln -s /home/${USER}/systemd.service_skywireNode /etc/systemd/system/skynode.service
 }
 ssh_config ()   # Base configuration for ssh: keys, daemon and client
 {
@@ -531,27 +531,31 @@ main ()
     user_create             # Create User and add to Group; set GOPATH
 
     git_build_skywire       # Clone Skywire repo; build binaries; permissions
+
+    # Set folder permissions:
+    chown "$USER":"$USER" -R /home/${USER}  # Change owner:group
+    chmod 754 -R /home/${USER}              # Set directory permissions
     
     skywire_node            # 
     
     skywire_manager
 
-    ssh_config
-
     systemctl daemon-reload
-    
     # Start Skywire services to generate keys and directories:
     if [[ "$WAT_DO" = MASTER ]]; then
+        echo "starting both"
         systemctl enable skynode.service
         systemctl start skynode.service
 
         systemctl enable skymanager.service
         systemctl start skymanager.service
     elif [[ "$WAT_DO" = MINION ]]; then
+        echo "starting node only"
         systemctl enable skynode.service
         systemctl start skynode.service
     fi
 
+    ssh_config
 
     #mkdir -p /home/skywire/.skywire
     #   create systemd files for Skywire:
