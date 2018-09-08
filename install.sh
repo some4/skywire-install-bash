@@ -37,8 +37,6 @@ menu ()
 
     ui_menu                     # display options to User
 
-    sleep 3                     # to slow spam
-
     read -p "" choice           # -p for prompt
     case "$choice" in
         z|Z ) WAT_DO="MASTER";;
@@ -542,7 +540,10 @@ ssh_config ()           # Base configuration for ssh: keys, daemon and client
 
 main ()
 {
+    sleep 3                         # to slow spam
+
     distro_check                    # Check compatibility; Debian, systemd?
+    
     menu                            # Show User some choices
 
     # Check for permission:
