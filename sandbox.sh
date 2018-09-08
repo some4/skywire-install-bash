@@ -126,33 +126,11 @@ net_interface_config () # Configure network adapter
     # A file named after the adapter will be added to folder
     #   /etc/network/interfaces.d with an appropriate configuration:
     
-    local interfacesd=/etc/network/interfaces.d # 2 make read e z
-
-    # Network configuration:
-    if [[ "$WAT_DO" = MASTER ]]; then
-    # From ip_check: "Enter the IP address ...":
-        ACTION="of this "$WAT_DO" node:"
-        ip_check
-        IP_HOST="$IP_ACTION"    # Set host address
-        IP_MANAGER="$IP_HOST"   # Set Manager address
-
-    elif [[ "$WAT_DO" = MINION ]]; then   
-        # "Enter the IP address ...":
-        ACTION="of this "$WAT_DO" node:"
-        ip_check "$entry_ip"
-        IP_HOST="$IP_ACTION"    # Set host address 
-
-        # "Enter the IP address ...":
-        ACTION="of a Skywire manager:"
-        ip_check "$entry_ip"
-        IP_MANAGER="$IP_ACTION" # Set a Manager address 
-    fi  
-
-    # Option for setting static IP or DHCP:
+    # Option for setting static IP or using DHCP:
     local choice_nic=""
-    local dhcp=0                                # 1=yes,0=no DHCP
+    local dhcp=0                                        # 1=yes,0=no DHCP
     echo "Press 'z' for manual Router IP entry"
-    read -p "Press 'p' for auto/DHCP"$'\n' choice_nic # $'\n' moves user cursor
+    read -p "Press 'p' for auto/DHCP"$'\n' choice_nic   # $'\n' moves cursor
     case "$choice_nic" in
         p|P ) dhcp=1;;
         z|Z ) ;;
@@ -162,13 +140,30 @@ net_interface_config () # Configure network adapter
     # Get deviceName:
     local deviceName=""
     #   1st network deviceName; no loopback(lo),virtual(vir),wireless(wl)):
-    deviceName=$(ip link | awk -F: '$0 !~ "lo|vir|wl|^[^0-9]"{print $2;getline}' \
-            | sed -n '1p' | sed 's/ //')        # 2p,3p,4p... for following devices
+    deviceName=$(ip link | \
+                awk -F: '$0 !~ "lo|vir|wl|^[^0-9]"{print $2;getline}' \
+                sed -n '1p' | sed 's/ //')      # 2p,3p,4p... for following devices
 
-    # Create deviceName file:
-    touch ${interfacesd}/${deviceName}.cfg
+    # Network configuration:
+    if [[ "$WAT_DO" = MASTER && "$dhcp" = 0 ]]; then
+    # From ip_check: "Enter the IP address ...":
+        ACTION="of this "$WAT_DO" node:"
+        ip_check
+        IP_HOST="$IP_ACTION"    # Set host address
+        IP_MANAGER="$IP_HOST"   # Set Manager address
+    elif [[ "$WAT_DO" = MINION && "$dhcp" = 0 ]]; then   
+    # "Enter the IP address ...":
+        ACTION="of this "$WAT_DO" node:"
+        ip_check "$entry_ip"
+        IP_HOST="$IP_ACTION"    # Set host address 
+    # "Enter the IP address ...":
+        ACTION="of a Skywire manager:"
+        ip_check "$entry_ip"
+        IP_MANAGER="$IP_ACTION" # Set a Manager address
+    fi
 
-    # Gather information and add configuration to above file:
+    # Gather information:
+    local interfacesd=/etc/network/interfaces.d # 2 make read e z
     local ip_router=""
     if [[ "$dhcp" = 0 ]]; then
         # from ip_check: "Enter the IP address ...":
@@ -193,7 +188,7 @@ net_interface_config () # Configure network adapter
     fi
 
     # Remove lines containing 'dhcp/static' from /etc/network/interfaces
-    #   to remove duplicate entries:
+    #   to cripple duplicate entries:
     sed -i '/dhcp/d; /static/d' /etc/network/interfaces
 }
 distro_update ()        # Base update and upgrade
@@ -408,15 +403,14 @@ git_build_skywire ()    # Clone Skywire repo; build binaries; permissions
 }
 skywire_manager ()      # systemd/autostart configuration; permissions
 {
-    # systemd wants .service files to point-to Absolute Paths; meaning 
-    #   systemd can't directly start $something in-the-name-of some User;
-    # A root permission (via soft link) to allow-User-to run something
-    #   will be created in /etc/systemd/.. and point to:
-    #   /home/$USER/systemd.service_something
-    # In the service_something file, the 'ExecStart' must point to $somefile
-    #   containing the Absolute Command to execute:
+    # In order to start an application, systemd wants .service files to
+    #   point-to "Absolute Path's."
+    # 'ExecStart=' points to a file containing an Absolute Path that starts
+    #   the application.
+    # 'ExecStop=' contains an Absolute Path that searches for process
+    #   'ExecStart=' and kills them (and their duplicates).
 
-    # Create systemd service file:
+    # Create systemd .service file:
     printf "[Unit]\n`
         `Description=Skywire Manager\n`
         `After=network.target\n`
@@ -433,27 +427,37 @@ skywire_manager ()      # systemd/autostart configuration; permissions
         `WantedBy=multi-user.target\n" \
         > /lib/systemd/system/skymanager.service
 
-    # 'Absolute Path' file:
+    # 'ExecStart=' file:
     printf "#!/bin/bash\n`
         `cd ${GOBIN}\n`
         `./manager -web-dir `
         `${GOPATH}/src/github.com/skycoin/skywire/static/skywire-manager `
         `> /dev/null 2>&1 &sleep 3\n" \
         > /home/${USER}/skywire_managerStart
-    #   set permissions (user rwx; group rx; else r)
+    #   permissions
         chown ${USER}:${USER} /home/${USER}/skywire_managerStart
         chmod 754 /home/${USER}/skywire_managerStart
+
+    # 'ExecStop=' file:
     printf "#!/bin/bash\n`
         `kill -9 $(ps aux | grep '[.]/manager')\n" \
         > /home/${USER}/skywire_managerStop
-    #   set permissions
+    #   permissions
         chown ${USER}:${USER} /home/${USER}/skywire_managerStop
         chmod 754 /home/${USER}/skywire_managerStop
 }
 skywire_node ()         # Create service file for Skywire Node (autostart)
 {
+    # Make discovery address e z:
     local disc_addr="discovery.skycoin.net:`
     `5999-034b1cd4ebad163e457fb805b3ba43779958bba49f2c5e1e8b062482904bacdb68"
+
+    # Assign a Skywire Manager:
+    if [[ "$WAT_DO" = MASTER ]]; then
+        local manager_ip="127.0.0.1"
+    elif [[ "$WAT_DO" = MINION ]]; then
+        local manager_ip="$IP_MANAGER"
+    fi
 
     # Create systemd service file:
     printf "[Unit]\n`
@@ -471,22 +475,27 @@ skywire_node ()         # Create service file for Skywire Node (autostart)
         `[Install]\n`
         `WantedBy=multi-user.target\n" \
         > /lib/systemd/system/skynode.service
-
-    # 'Absolute Path' files:
+ 
+    # 'ExecStart=" file:
     printf "#!/bin/bash\n`
+        `local disc_addr=$disc_addr\n`
+        `local manager_ip=$manager_ip\n`
+        `\n`
         `cd ${GOBIN}\n`
-        `./node -connect-manager -manager-address 127.0.0.1:5998 `
-        `-manager-web 127.0.0.1:8000 `
-        `-discovery-address ${disc_addr} -address :5000 -web-port :6001 `
+        `./node -connect-manager -manager-address \$manager_ip:5998 `
+        `-manager-web \$manager_ip:8000 `
+        `-discovery-address \${disc_addr} -address :5000 -web-port :6001 `
         `> /dev/null 2>&1 &sleep 3\n" \
         > /home/${USER}/skywire_nodeStart
-    #   set permissions
+    #   permissions
         chown ${USER}:${USER} /home/${USER}/skywire_nodeStart
         chmod 754 /home/${USER}/skywire_nodeStart
+
+    # 'ExecStop=' file:
     printf "#!/bin/bash\n`
         `kill -9 $(ps aux | grep '[.]/node')\n" \
         > /home/${USER}/skywire_nodeStop
-    #   set permissions
+    #   permissions
         chown ${USER}:${USER} /home/${USER}/skywire_nodeStop
         chmod 754 /home/${USER}/skywire_nodeStop
 }
@@ -542,9 +551,9 @@ main ()
 
     # Set folder permissions:
     chown "$USER":"$USER" -R /home/${USER}  # Change owner:group
-    chmod 754 -R /home/${USER}              # Set directory permissions754
+    chmod 754 -R /home/${USER}              # Set base permissions
     
-    skywire_node
+    skywire_node            # Skywire systemd configurations:
     
     skywire_manager
 
@@ -566,8 +575,6 @@ main ()
 
     ssh_config
 
-    #mkdir -p /home/skywire/.skywire
-    #   create systemd files for Skywire:
     # Force root to hold node keys (because of sockss bug that regens keys):
     #chmod 644 /home/${USER}/go/bin/.skywire/ss/keys.json
     #chown root:root /home/${USER}/go/bin/.skywire/ss/keys.json
