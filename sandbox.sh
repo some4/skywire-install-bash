@@ -140,9 +140,9 @@ net_interface_config () # Configure network adapter
     # Get deviceName:
     local deviceName=""
     #   1st network deviceName; no loopback(lo),virtual(vir),wireless(wl)):
-    deviceName=$(ip link | \
-                awk -F: '$0 !~ "lo|vir|wl|^[^0-9]"{print $2;getline}' \
-                sed -n '1p' | sed 's/ //')      # 2p,3p,4p... for following devices
+    deviceName=$(ip link | `\
+                `awk -F: '$0 !~ "lo|vir|wl|^[^0-9]"{print $2;getline}' | `\
+                `sed -n '1p' | sed 's/ //') # 2p,3p,4p... for following devices
 
     # Network configuration:
     if [[ "$WAT_DO" = MASTER && "$dhcp" = 0 ]]; then
@@ -151,11 +151,20 @@ net_interface_config () # Configure network adapter
         ip_check
         IP_HOST="$IP_ACTION"    # Set host address
         IP_MANAGER="$IP_HOST"   # Set Manager address
+    elif [[ "$WAT_DO" = MASTER && "$dhcp" = 1 ]]; then
+        IP_HOST=$(ip addr | grep 'state UP' -A2 | tail -n1 | awk '{print $2}' | cut -f1 -d'/')
+        IP_MANAGER="$IP_HOST"
     elif [[ "$WAT_DO" = MINION && "$dhcp" = 0 ]]; then   
     # "Enter the IP address ...":
         ACTION="of this "$WAT_DO" node:"
         ip_check "$entry_ip"
         IP_HOST="$IP_ACTION"    # Set host address 
+    # "Enter the IP address ...":
+        ACTION="of a Skywire manager:"
+        ip_check "$entry_ip"
+        IP_MANAGER="$IP_ACTION" # Set a Manager address
+    elif [[ "$WAT_DO" = MINION && "$dhcp" = 1 ]]; then
+        IP_HOST=$(ip addr | grep 'state UP' -A2 | tail -n1 | awk '{print $2}' | cut -f1 -d'/')
     # "Enter the IP address ...":
         ACTION="of a Skywire manager:"
         ip_check "$entry_ip"
@@ -429,7 +438,7 @@ skywire_manager ()      # systemd/autostart configuration; permissions
 
     # 'ExecStart=' file:
     printf "#!/bin/bash\n`
-        `cd ${GOBIN}\n`
+        `cd "$GOBIN"\n`
         `./manager -web-dir `
         `${GOPATH}/src/github.com/skycoin/skywire/static/skywire-manager `
         `> /dev/null 2>&1 &sleep 3\n" \
@@ -478,13 +487,12 @@ skywire_node ()         # Create service file for Skywire Node (autostart)
  
     # 'ExecStart=" file:
     printf "#!/bin/bash\n`
-        `local disc_addr=$disc_addr\n`
-        `local manager_ip=$manager_ip\n`
+        `local manager_ip=\"$manager_ip\"\n`
         `\n`
-        `cd ${GOBIN}\n`
+        `cd "$GOBIN"\n`
         `./node -connect-manager -manager-address \$manager_ip:5998 `
         `-manager-web \$manager_ip:8000 `
-        `-discovery-address \${disc_addr} -address :5000 -web-port :6001 `
+        `-discovery-address "$disc_addr" -address :5000 -web-port :6001 `
         `> /dev/null 2>&1 &sleep 3\n" \
         > /home/${USER}/skywire_nodeStart
     #   permissions
