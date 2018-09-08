@@ -16,6 +16,7 @@ IP_MINION=192.168.1.2
 #           manager
 #           node
 #           networking?
+#           reinstall: remove /home/$USER
 #       system update
 #       skywire update
 #           ssh batchmode to restart node?
@@ -25,6 +26,7 @@ IP_MINION=192.168.1.2
 #       hostnames
 #       keys
 #           backup/regen/copy
+                https://github.com/skycoin/skywire/wiki/Backup-.skywire-folders-(public-keys)
 #       replicate existing user and rename
 # notes: connecting IP's with different subnets
 
