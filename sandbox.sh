@@ -23,7 +23,7 @@ IP_ACTION=""    ##  set local IP variables
 PKG_MANAGER=""  #   distro_check, prereq_check
 PKG_UPDATE=""   #   distro_check
 PKG_UPGRADE=""  #   distro_check
-USER="skywire"  ##  assign User to Skywire
+USER="skywire"  ##  assigned User to Skywire
 WAT_DO=""       #   main
 
 ## Presentation and options:
@@ -193,7 +193,7 @@ net_interface_config () # Configure network adapter
     fi
 
     # Remove lines containing 'dhcp/static' from /etc/network/interfaces
-    #   as a hack to remove duplicate entries:
+    #   to remove duplicate entries:
     sed -i '/dhcp/d; /static/d' /etc/network/interfaces
 }
 distro_update ()        # Base update and upgrade
@@ -422,18 +422,16 @@ skywire_manager ()      # systemd/autostart configuration; permissions
         `After=network.target\n`
         `\n`
         `[Service]\n`
-        `Type=oneshot`
         `User=${USER}\n`
         `Group=${USER}\n`
+        `Type=oneshot\n`
+        `RemainAfterExit=yes\n`
         `ExecStart=/home/${USER}/skywire_managerStart\n`
-        `Restart=on-failure\n`
-        `RestartSec=10\n`
+        `ExecStop=/home/${USER}/skywire_managerStop\n`
         `\n`
         `[Install]\n`
         `WantedBy=multi-user.target\n" \
-        > /etc/systemd/system/skymanager.service
-    #   permissions:
-        chmod 754 /etc/systemd/system/skymanager.service
+        > /lib/systemd/system/skymanager.service
 
     # 'Absolute Path' file:
     printf "#!/bin/bash\n`
@@ -445,6 +443,12 @@ skywire_manager ()      # systemd/autostart configuration; permissions
     #   set permissions (user rwx; group rx; else r)
         chown ${USER}:${USER} /home/${USER}/skywire_managerStart
         chmod 754 /home/${USER}/skywire_managerStart
+    printf "#!/bin/bash\n`
+        `kill -9 $(ps aux | grep '[.]/manager')\n" \
+        > /home/${USER}/skywire_managerStop
+    #   set permissions
+        chown ${USER}:${USER} /home/${USER}/skywire_managerStop
+        chmod 754 /home/${USER}/skywire_managerStop
 }
 skywire_node ()         # Create service file for Skywire Node (autostart)
 {
@@ -457,20 +461,18 @@ skywire_node ()         # Create service file for Skywire Node (autostart)
         `After=network.target\n`
         `\n`
         `[Service]\n`
-        `Type=oneshot`
         `User=${USER}\n`
         `Group=${USER}\n`
+        `Type=oneshot\n`
+        `RemainAfterExit=yes\n`
         `ExecStart=/home/${USER}/skywire_nodeStart\n`
-        `Restart=on-failure\n`
-        `RestartSec=10\n`
+        `ExecStop=/home/${USER}/skywire_nodeStop\n`
         `\n`
         `[Install]\n`
         `WantedBy=multi-user.target\n" \
-        > /etc/systemd/system/skynode.service
-    #   permissions:
-        chmod 754 /etc/systemd/system/skynode.service
+        > /lib/systemd/system/skynode.service
 
-    # 'Absolute Path' file:
+    # 'Absolute Path' files:
     printf "#!/bin/bash\n`
         `cd ${GOBIN}\n`
         `./node -connect-manager -manager-address 127.0.0.1:5998 `
@@ -478,9 +480,15 @@ skywire_node ()         # Create service file for Skywire Node (autostart)
         `-discovery-address ${disc_addr} -address :5000 -web-port :6001 `
         `> /dev/null 2>&1 &sleep 3\n" \
         > /home/${USER}/skywire_nodeStart
-    #   set permissions (user rwx; group rx; else r)
+    #   set permissions
         chown ${USER}:${USER} /home/${USER}/skywire_nodeStart
         chmod 754 /home/${USER}/skywire_nodeStart
+    printf "#!/bin/bash\n`
+        `kill -9 $(ps aux | grep '[.]/node')\n" \
+        > /home/${USER}/skywire_nodeStop
+    #   set permissions
+        chown ${USER}:${USER} /home/${USER}/skywire_nodeStop
+        chmod 754 /home/${USER}/skywire_nodeStop
 }
 ssh_config ()   # Base configuration for ssh: keys, daemon and client
 {
@@ -534,13 +542,14 @@ main ()
 
     # Set folder permissions:
     chown "$USER":"$USER" -R /home/${USER}  # Change owner:group
-    chmod 754 -R /home/${USER}              # Set directory permissions
+    chmod 754 -R /home/${USER}              # Set directory permissions754
     
-    skywire_node            # 
+    skywire_node
     
     skywire_manager
 
     systemctl daemon-reload
+    sleep 3
     # Start Skywire services to generate keys and directories:
     if [[ "$WAT_DO" = MASTER ]]; then
         echo "starting both"
