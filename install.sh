@@ -257,9 +257,8 @@ user_create ()          # Create User/Group 'skywire'; set GOPATH, permissions
     export GOPATH=/home/${USER}/go
     export GOBIN=${GOPATH}/bin
 
-    # GOPATH is user-specific; root, SU and the Owner can build/execute/write
-    #   to this path. Others may only read and can join group '$USER'
-    #   for privilege:
+    # The entire home directory belongs to $USER. Others have read only
+    #   for certain files/directories
     echo "export GOROOT=/usr/local/go" >> /home/${USER}/.bash_profile
     echo "export GOPATH=/home/${USER}/go" >> /home/${USER}/.bash_profile
     echo "export GOBIN=${GOPATH}/bin" >> /home/${USER}/.bash_profile
