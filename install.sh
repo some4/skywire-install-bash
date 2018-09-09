@@ -12,10 +12,7 @@
 #   it's own permissions.
 #
 # UserRunningScript will be given a choice of manual IP entry or using
-#   the current (DHCP?) assignment for thisNode's IP.
-# 
-# Master nodes maintain a list of the hosts that make up a Cluster by printing
-#   out Minion ssh-keys in directory /home/${USER}/.ssh
+#   the current (DHCP?) assignment for This node's IP.
 
 ## Global variables:
 # NAME          ##  used to:
@@ -81,6 +78,7 @@ ip_validate ()  # Check format/values of IP entry
 ip_bad_entry () # Alert User and require action for an invalid entry
 {
     sleep 3     # to slow spam
+    
     # Prompt User action (n1 = read any single byte; s = turn off echo):
     read -p "Invalid IP. Press any key to try again... "``$'\n' -n1 -s
 }
@@ -493,7 +491,7 @@ skywire_node ()         # Create service file for Skywire Node (autostart)
  
     # 'ExecStart=' file:
     printf "#!/bin/bash\n`
-        `local manager_ip=\"$manager_ip\"\n`
+        `manager_ip=\"$manager_ip\"\n`
         `\n`
         `cd "$GOBIN"\n`
         `./node -connect-manager -manager-address \$manager_ip:5998 `
@@ -515,27 +513,20 @@ skywire_node ()         # Create service file for Skywire Node (autostart)
 }
 ssh_config ()           # Base configuration for ssh: keys, daemon and client
 {
-    # Name the keys after $IP_HOST:
-    ssh_userHome=/home/${USER}/.ssh
+    ssh_userHome=/home/${USER}/.ssh # Make this path e z
 
     mkdir -p "$ssh_userHome"
-    chmod 700 "$ssh_userHome"   # set permission     
+    chown ${USER}:${USER} -R "$ssh_userHome"
+    chmod 700 "$ssh_userHome"   # set permission    
 
-    # RSA keys:
-    ssh-keygen -t rsa -N "" -f "${IP_HOST}" # keygen -type -Nopassword -filename ""
-    chown "$USER":"$USER" ${IP_HOST}*       # Change ownership otherwise belongs
+    ssh-keygen -t rsa -N "" `   # keygen -type rsa no password
+    `-f "$IP_HOST" `            # filename
+    `-C "$IP_HOST"              # internal comment
+
+    chown "$USER":"$USER" "$IP_HOST"*       # Change ownership otherwise belongs
                                             #  to Super User
-    chmod 600 ${IP_HOST}*                   # Set permissions
-    mv ${IP_HOST}* "$ssh_userHome"          # Move to .ssh/
-    
-
-    if [[ $WAT_DO = MINION ]]; then
-        # SSH to $MASTER; copy public key to .ssh/authorized_keys;
-        #   make directory and set permissions:
-        cat ${ssh_userHome}/${IP_HOST}.pub | ssh ${USER}@${IP_MASTER} \
-            "mkdir -p ${ssh_userHome} && ${ssh_userHome} && \
-            cat >> ${ssh_userHome}/authorized_keys"
-    fi
+    chmod 600 "$IP_HOST"*                   # Set permissions
+    mv "$IP_HOST"* "$ssh_userHome"          # Move to .ssh/
 }
 
 main ()
@@ -591,6 +582,7 @@ main ()
     ssh_config
 
     echo "Installation complete."
+
     # Github.com/some4/Skywire
 }
 main
