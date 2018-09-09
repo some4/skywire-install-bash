@@ -19,11 +19,11 @@
 #               #   used in functions:
 IP_HOST=""      #   ip_entry, ntp_config
 IP_MANAGER=""   #   ip_prompt_manager, ntp_config
-IP_ACTION=""    ##  sets local IP variables
+IP_ACTION=""    ##  set local IP variables
 PKG_MANAGER=""  #   distro_check, prereq_check
 PKG_UPDATE=""   #   distro_check
 PKG_UPGRADE=""  #   distro_check
-USER="skywire"  ##  assigned User to Skywire
+USER="skywire"  ##  assign User to Skywire
 WAT_DO=""       #   main
 
 ## Presentation and options:
