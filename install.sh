@@ -67,7 +67,7 @@ ip_validate ()  # Check format/values of IP entry
         ip=($ip)        # assign to array
         IFS=$OIFS       # revert IFS
 
-        # test values to see if they're within IP range:
+    #   test values to see if they're within IP range:
         [[ ${ip[0]} -le 255 && ${ip[1]} -le 255 \
         && ${ip[2]} -le 255 && ${ip[3]} -le 255 ]]
 
@@ -106,7 +106,7 @@ distro_check ()         # System compatibility check for this script
 {
     # Check package manager type and if systemd exists:
     
-    # If `apt` exists = Debian:
+    #   if `apt` exists = Debian:
     if command -v apt-get &> /dev/null; then
         PKG_MANAGER="apt-get"
         PKG_UPDATE=""$PKG_MANAGER" update"
@@ -117,7 +117,7 @@ distro_check ()         # System compatibility check for this script
         exit
     fi
 
-    # systemd:
+    #   systemd:
     if [[ ! -d /usr/lib/systemd ]]; then
         echo "This script requires systemd."
         exit
@@ -148,7 +148,7 @@ net_interface_config () # Configure network adapter
 
     # Network configuration:
     if [[ "$WAT_DO" = MASTER && "$dhcp" = 0 ]]; then
-    # From ip_check: "Enter the IP address ...":
+    #   From ip_check: "Enter the IP address ...":
         ACTION="of this "$WAT_DO" node:"
         ip_check
         IP_HOST="$IP_ACTION"    # Set host address
@@ -158,18 +158,18 @@ net_interface_config () # Configure network adapter
         `awk '{print $2}' | cut -f1 -d'/')
         IP_MANAGER="$IP_HOST"
     elif [[ "$WAT_DO" = MINION && "$dhcp" = 0 ]]; then   
-    # "Enter the IP address ...":
+    #   "Enter the IP address ...":
         ACTION="of this "$WAT_DO" node:"
         ip_check "$entry_ip"
         IP_HOST="$IP_ACTION"    # Set host address 
-    # "Enter the IP address ...":
+    #   "Enter the IP address ...":
         ACTION="of a Skywire manager:"
         ip_check "$entry_ip"
         IP_MANAGER="$IP_ACTION" # Set a Manager address
     elif [[ "$WAT_DO" = MINION && "$dhcp" = 1 ]]; then
         IP_HOST=$(ip addr | grep 'state UP' -A2 | tail -n1 | `
         `awk '{print $2}' | cut -f1 -d'/')
-    # "Enter the IP address ...":
+    #   "Enter the IP address ...":
         ACTION="of a Skywire manager:"
         ip_check "$entry_ip"
         IP_MANAGER="$IP_ACTION" # Set a Manager address
@@ -179,7 +179,7 @@ net_interface_config () # Configure network adapter
     local interfacesd=/etc/network/interfaces.d # 2 make read e z
     local ip_router=""
     if [[ "$dhcp" = 0 ]]; then
-        # from ip_check: "Enter the IP address ...":
+    #   from ip_check: "Enter the IP address ...":
         ACTION="of your Router:"
         ip_check
         ip_router="$IP_ACTION"                  # set Router address
@@ -288,21 +288,21 @@ ntp_config ()           # Network Time Protocol (NTP)
 
     # Menu choices:
     if [[ $WAT_DO = MASTER ]]; then
-    # Configure ntpd for choice $MASTER
+    #   Configure ntpd for choice $MASTER
         echo "Installing Network Time Protocol daemon (NTP)..."
         "$PKG_MANAGER" install ntp -y
 
         echo "Configuring NTP..."
-        # Backup (but don't overwrite an existing)
+    #   Backup (but don't overwrite an existing)
         cp -n /etc/ntp.conf /etc/ntp.orig
         # Fresh copy
         cp /etc/ntp.orig /etc/ntp.conf
 
-        # Set a standard polling interval (n^2 seconds)
+    #   Set a standard polling interval (n^2 seconds)
         sed -i '/.org iburst/ s/$/ minpoll 6 maxpoll 8/' \
         /etc/ntp.conf
 
-        # Disable timesyncd because it conflicts with ntpd
+    #   Disable timesyncd because it conflicts with ntpd
         systemctl disable systemd-timesyncd.service
 
         echo "Restarting NTP..."
@@ -312,7 +312,7 @@ ntp_config ()           # Network Time Protocol (NTP)
         sed -i 's/#NTP=/NTP='"$IP_MANAGER"'/' \
         /etc/systemd/timesyncd.conf
 
-        # Fallback on Debian pools:
+    #   Fallback on Debian pools:
         sed -i 's/#Fall/Fall/' \
         /etc/systemd/timesyncd.conf
 
@@ -364,13 +364,13 @@ go_install ()           # Detect CPU; install Go; update system PATH
     # Try to get the appropriate Go binary:
     while [ $tries -ge 0 ]; do  # while $tries>=0
 
-        # -c resumes partial downloads and doesn't restart if exists
+    #   -c resumes partial downloads and doesn't restart if exists
         wget -c https://dl.google.com/go/${link}
 
         check_hash
 
-        # Loop twice if initial fails; possible exit codes: {-1,2}
-        #   (remember, variable "tries" first declared as integer 2)
+    #   Loop twice if initial fails; possible exit codes: {-1,2}
+    #       (remember, variable "tries" first declared as integer 2)
         if [ $tries -eq 2 ]; then           # Strike 1
             echo "Retrying download..."     #   maybe interrupted?
         elif [ $tries -eq 1 ]; then         # Strike 2
