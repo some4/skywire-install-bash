@@ -39,7 +39,7 @@ menu ()
         z|Z ) WAT_DO="MASTER";;
         p|P ) WAT_DO="MINION";;
         q|Q ) exit;;
-        * ) . WIP-install.sh;;  # sigh...
+        * ) . install.sh;;  # sigh...
     esac
 }
 ui_menu ()              # separated from menu () to keep things tidy
@@ -152,7 +152,8 @@ net_interface_config () # Configure network adapter
         IP_HOST="$IP_ACTION"    # Set host address
         IP_MANAGER="$IP_HOST"   # Set Manager address
     elif [[ "$WAT_DO" = MASTER && "$dhcp" = 1 ]]; then
-        IP_HOST=$(ip addr | grep 'state UP' -A2 | tail -n1 | awk '{print $2}' | cut -f1 -d'/')
+        IP_HOST=$(ip addr | grep 'state UP' -A2 | tail -n1 | `
+        `awk '{print $2}' | cut -f1 -d'/')
         IP_MANAGER="$IP_HOST"
     elif [[ "$WAT_DO" = MINION && "$dhcp" = 0 ]]; then   
     # "Enter the IP address ...":
@@ -164,7 +165,8 @@ net_interface_config () # Configure network adapter
         ip_check "$entry_ip"
         IP_MANAGER="$IP_ACTION" # Set a Manager address
     elif [[ "$WAT_DO" = MINION && "$dhcp" = 1 ]]; then
-        IP_HOST=$(ip addr | grep 'state UP' -A2 | tail -n1 | awk '{print $2}' | cut -f1 -d'/')
+        IP_HOST=$(ip addr | grep 'state UP' -A2 | tail -n1 | `
+        `awk '{print $2}' | cut -f1 -d'/')
     # "Enter the IP address ...":
         ACTION="of a Skywire manager:"
         ip_check "$entry_ip"
@@ -485,7 +487,7 @@ skywire_node ()         # Create service file for Skywire Node (autostart)
         `WantedBy=multi-user.target\n" \
         > /lib/systemd/system/skynode.service
  
-    # 'ExecStart=" file:
+    # 'ExecStart=' file:
     printf "#!/bin/bash\n`
         `local manager_ip=\"$manager_ip\"\n`
         `\n`
@@ -580,6 +582,9 @@ main ()
         systemctl enable skynode.service
         systemctl start skynode.service
     fi
+
+    chown root:"$USER" -R /home/$USER/.skywire
+    chmod 750 -R /home/${USER}/.skywire
 
     ssh_config
 
