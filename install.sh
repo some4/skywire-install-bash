@@ -15,16 +15,16 @@
 #   the current (DHCP?) assignment for This node's IP.
 
 ## Global variables:
-# NAME          ##  used to:
-#               #   used in functions:
-IP_HOST=""      #   ip_entry, ntp_config
-IP_MANAGER=""   #   ip_prompt_manager, ntp_config
-IP_ACTION=""    ##  set local IP variables
-PKG_MANAGER=""  #   distro_check, prereq_check
-PKG_UPDATE=""   #   distro_check
-PKG_UPGRADE=""  #   distro_check
-USER="skywire"  ##  assign User to Skywire
-WAT_DO=""       #   main
+# NAME                  ##  used to:
+#                       #   used in functions:
+IP_HOST=""              #   ip_entry, ntp_config
+IP_MANAGER=""           #   ip_prompt_manager, ntp_config
+IP_ACTION=""            ##  set local IP variables
+PKG_MANAGER=""          #   distro_check, prereq_check
+PKG_UPDATE=""           #   distro_check
+PKG_UPGRADE=""          #   distro_check
+USER="skywire"          ##  assign User to Skywire
+WAT_DO=""               #   main
 
 ## Presentation and options:
 menu ()
@@ -528,6 +528,141 @@ ssh_config ()           # Base configuration for ssh: keys, daemon and client
     mv "$IP_HOST"* "$ssh_userHome"          # Move to .ssh/
 }
 
+## A set of functions that set's up SSL on $MASTER node
+ssl_rootca ()           # Install root Certificate Authority
+{
+    # mkcert [brilliant; this author saved me days!]:
+    #   install certutil, nginx
+    "$PKG_MANAGER" install libnss3-tools -y
+    #   build
+    /usr/local/go/bin/go get -u github.com/FiloSottile/mkcert
+    #   copy to bin
+    cp ${GOBIN}/mkcert /usr/bin/
+    #   generate local Certificate Authority
+    mkcert -install
+    #   create separate folders
+    mkdir -p /etc/ssl/{certs,private}
+}
+ssl_proxy ()            # Install and configure nginx 
+{
+    # Install nginx
+    "$PKG_MANAGER" install nginx -y
+    #   generate Diffie-Hellman parameter:
+    mkdir -p /etc/nginx/ssl
+    #       1024 for testing; 4096 for world
+    (cd /etc/nginx/ssl && openssl dhparam -out dhparam.pem 1024)
+}
+ssl_skywire ()          # Skywire-specific configuration
+{
+    # Generate certificates:
+    mkcert skywire-"$IP_MANAGER"
+    #   move to
+    mv skywire-"$IP_MANAGER".pem /etc/ssl/certs/
+    mv skywire-"$IP_MANAGER"-key.pem /etc/ssl/private/
+
+    # Nginx/proxy configuration:
+    #   create root-Web-Folder for nginx
+    mkdir -p /var/local/skywire/www
+    #   /etc/nginx/conf.d/skywire.conf:
+    printf "# Remove server identifiers to help against enumeration\n`
+        `server_tokens off;\n`
+        `\n`
+        `# Add some protection headers for ClickJacking \n`
+        `add_header X-Frame-Options DENY;\n`
+        `add_header X-Content-Type-Options nosniff;\n`
+        `\n`
+        `# Redirect to https\n`
+        `server {\n`
+        `   listen 80;\n`
+        `   server_name "$IP_MANAGER";\n`
+        `   return 301 https://${IP_MANAGER}:8000;\n`
+        `}\n`
+        `# Redirect to https\n`
+        `server {\n`
+        `   listen 80;\n`
+        `   server_name ${IP_MANAGER}:8000;\n`
+        `   return 301 https://${IP_MANAGER}:8000;\n`
+        `}\n`
+        `\n`
+        `server {\n`
+        `   # Listen for HTTPS connections using http2;\n`
+        `   listen       443 ssl http2;\n`
+        `   server_name  "$IP_MANAGER";\n`
+        `\n`
+        `   # Define where to find the certificates\n`
+        `   # These will be under the letsencrypt folder \n`
+        `   ssl_certificate      /etc/ssl/certs/skywire-`
+                `${IP_MANAGER}.pem;\n`
+        `   ssl_certificate_key  /etc/ssl/private/skywire-`
+                `${IP_MANAGER}-key.pem;\n`
+        `\n`
+        `   # Cache SSL handshakes\n`
+        `   ssl_session_cache shared:SSL:50m;\n`
+        `   ssl_session_timeout  5m;\n`
+        `\n`
+        `   # Use our new Diffie-Hellman parameter for DHE ciphersuites, `
+                `recommended 4096 bits\n`
+        `   ssl_dhparam /etc/nginx/ssl/dhparam.pem;\n`
+        `\n`
+        `   ssl_prefer_server_ciphers   on;\n`
+        `\n`
+        `   # disable SSLv3(enabled by default since nginx 0.8.19) since it's `
+                `less secure then TLS http://en.wikipedia.org/wiki/Secure_`
+                `Sockets_Layer#SSL_3.0\n`
+        `   ssl_protocols TLSv1 TLSv1.1 TLSv1.2;\n`
+        `\n`
+        `   # ciphers chosen for forward secrecy and compatibility\n`
+        `   # http://blog.ivanristic.com/2013/08/configuring-apache-nginx-and`
+                `-openssl-for-forward-secrecy.html\n`
+        `   ssl_ciphers "ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-GCM-`
+                `SHA256:DHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256:`
+                `ECDHE-RSA-AES256-SHA384:ECDHE-RSA-AES128-SHA256:ECDHE-RSA-`
+                `AES256-SHA:ECDHE-RSA-AES128-SHA:DHE-RSA-AES256-SHA256:DHE-`
+                `RSA-AES128-SHA256:DHE-RSA-AES256-SHA:DHE-RSA-AES128-SHA:`
+                `ECDHE-RSA-DES-CBC3-SHA:EDH-RSA-DES-CBC3-SHA:AES256-GCM-SHA384`
+                `:AES128-GCM-SHA256:AES256-SHA256:AES128-SHA256:AES256-SHA:`
+                `AES128-SHA:DES-CBC3-SHA:HIGH:!aNULL:!eNULL:!EXPORT:!DES:!MD5:`
+                `!PSK:!RC4";\n`
+        `\n`
+        `   # Define our root folder\n`
+        `   root /var/local/skywire/www;\n`
+        `\n`
+        `   # Use gzip to save on bandwith\n`
+        `   gzip on;\n`
+        `   gzip_comp_level 7;\n`
+        `   gzip_types text/plain text/css text/javascript `
+                `application/javascript;\n`
+        `   gzip_proxied any;\n`
+        `\n`
+        `   # Tell the browser to force HTTPS\n`
+        `   add_header Strict-Transport-Security \"max-age=31536000;\";\n`
+        `\n`
+        `   # Optimise internal TCP connections\n`
+        `   tcp_nopush on;\n`
+        `   tcp_nodelay on;\n`
+        `\n`
+        `   # Add static file serving from /var/local/skywire/www\n`
+        `   location /public {\n`
+        `       sendfile on;\n`
+        `       include /etc/nginx/mime.types;\n`
+        `       charset utf-8;\n`
+        `       expires 30d;\n`
+        `   }\n`
+        `\n`
+        `   # Proxy all other requests to Skywire\n`
+        `   location / {\n`
+            `   proxy_set_header Host \$host;\n`
+            `   proxy_set_header X-Real-IP \$remote_addr;\n`
+            `   proxy_pass      http://0.0.0.0:8000;\n`
+            `   proxy_redirect  off;\n`
+        `   }\n`
+        `}\n" \
+        > /etc/nginx/conf.d/skywire.conf
+
+    #   restart systemd service
+    systemctl restart nginx.service
+}
+
 main ()
 {
     sleep 3                         # to slow spam
@@ -579,6 +714,11 @@ main ()
     fi
 
     ssh_config
+
+    # Configure SSL:
+    ssl_rootca
+    ssl_proxy
+    ssl_skywire
 
     echo "Installation complete."
 
