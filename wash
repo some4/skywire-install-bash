@@ -1,2 +1,0 @@
-# removes hidden markup at end of lines
-sed -i 's/\r$//' *.sh
