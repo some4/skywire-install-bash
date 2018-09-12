@@ -33,7 +33,8 @@ IF YOU'RE USING DHCP TO HANDLE IP's: have the IP's established on your router be
 
 and follow the prompts
 ### Post-install
-* `http://IP_OF_MASTER_NODE:8000` on your browser and set a manager password (default:1234). Check if your nodes are present 
+* `https://IP_OF_MASTER_NODE:8000` on your browser and set a manager 
+password (default:1234). Check if your nodes are present 
 * for each node: under 'Operations' click 'settings' and check if there is a green checkmark to-the-right-of 'Discovery Address Status'
 
 ## update.sh
