@@ -326,7 +326,7 @@ go_install ()           # Detect CPU; install Go; update system PATH
 {
     local cpu=""
     local os="linux"
-    local version=1.11
+    local version=1.12
     local link=""       # system binary URL, check_hash, File Archive (.tar.gz)
     local hash=""       # Expected Hash Values copied from https://golang.org/dl/
     local hashCheck=""  # Local Hash Compute Value
@@ -338,10 +338,13 @@ go_install ()           # Detect CPU; install Go; update system PATH
     #   supported types:
     if [ $cpu = "x86_64" ]; then
         cpu=.${os}-amd64
-        hash=b3fcf280ff86558e0559e185b601c9eade0fd24c900b4c63cd14d1d38613e499
-    elif [ $cpu=*"arm"* ]; then
-        cpu=.${os}-armv6l
-        hash=8ffeb3577d8ca5477064f1cb8739835973c866487f2bf81df1227eaa96826acd
+        hash=750a07fef8579ae4839458701f4df690e0b20b8bcce33b437e4df89c451b6f13
+    elif [ $cpu="aarch64" ]; then
+        cpu=.${os}-arm64
+        hash=b7bf59c2f1ac48eb587817a2a30b02168ecc99635fc19b6e677cce01406e3fac
+    #elif [ $cpu=*"arm"* ]; then
+    #    cpu=.${os}-armv6l
+    #    hash=8ffeb3577d8ca5477064f1cb8739835973c866487f2bf81df1227eaa96826acd
     else
         echo "Your CPU is not supported by this script."
         exit
@@ -547,9 +550,11 @@ ssl_proxy ()            # Install and configure nginx
 {
     # Install nginx
     "$PKG_MANAGER" install nginx -y
+    #   adjust for long domain names (default is 32)
+    sed -i 's/# server_names.*/server_names_hash_bucket_size 64;/' /etc/nginx/nginx.conf
     #   generate Diffie-Hellman parameter:
     mkdir -p /etc/nginx/ssl
-    #       1024 for testing; 4096 for world
+    #   1024 for testing; 4096 for world
     (cd /etc/nginx/ssl && openssl dhparam -out dhparam.pem 1024)
 }
 ssl_skywire ()          # Skywire-specific configuration
